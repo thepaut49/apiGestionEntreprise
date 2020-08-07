@@ -1,0 +1,5 @@
+# Visual studio folder
+.vscode
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
