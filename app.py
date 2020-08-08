@@ -8,7 +8,9 @@ app= Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 # database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir,'db.sqlite')
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir,'db.sqlite')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://thepolo49:Pastel12008?@localhost:3306/dbGestion' 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
