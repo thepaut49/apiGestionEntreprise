@@ -1,67 +1,18 @@
+from app import app,db
 from flask import Flask, request, jsonify, make_response
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 import datetime
 from functools import wraps
 import os
-
-# Init app
-app = Flask(__name__)
-basedir = os.path.abspath(os.path.dirname(__file__))
-
-# database
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir,'db.sqlite')
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://thepolo49:Pastel12008?@localhost:3306/dbGestion' 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'thisissecret'
-
-# Init db
-db = SQLAlchemy(app)
-
-# Init marshmallow
-ma = Marshmallow(app)
-
-#User Class/Model
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key = True)
-    public_id = db.Column(db.String(50), unique = True)
-    name = db.Column(db.String(50))
-    password = db.Column(db.String(80))
-    admin = db.Column(db.Boolean)
-
-    def __init__(self, public_id,name,password,admin):
-        self.public_id = public_id
-        self.name = name
-        self.password = password
-        self.admin = admin
+from app.models import User,UserSchema, Todo, TodoSchema
+from flask_cors import CORS
+import random
+import string
 
 
-# User Schema
-class UserSchema(ma.Schema):
-  class Meta:
-    fields = ('id', 'public_id', 'name', 'password', 'admin')
-
-#Todo Class/Model
-class Todo(db.Model):
-    id = db.Column(db.Integer, primary_key = True)
-    text = db.Column(db.String(50))
-    complete = db.Column(db.Boolean)
-    user_id = db.Column(db.Integer)
-
-    def __init__(self, text,complete,user_id):
-        self.text = text
-        self.complete = complete
-        self.user_id = user_id
-
-
-# Todo Schema
-class TodoSchema(ma.Schema):
-  class Meta:
-    fields = ('id', 'text', 'complete', 'user_id')
+CORS(app)
 
 
 def token_required(f):
@@ -102,6 +53,7 @@ def get_all_users(current_user):
     user_data['name'] = user.name
     user_data['password'] = user.password
     user_data['admin'] = user.admin
+    user_data['mail'] = user.mail
     output.append(user_data)
 
   return jsonify({'users': output})
@@ -124,6 +76,7 @@ def get_one_user(current_user,public_id):
   user_data['name'] = user.name
   user_data['password'] = user.password
   user_data['admin'] = user.admin
+  user_data['mail'] = user.mail
   return jsonify({'user': user_data})
 
 @app.route('/user', methods=['POST'])
@@ -137,11 +90,12 @@ def create_user(current_user):
 
   hashed_password = generate_password_hash(data['password'],method='sha256')
  
-  new_user = User(public_id=str(uuid.uuid4()), name=data['name'], password=hashed_password, admin=False)
+  new_user = User(public_id=str(uuid.uuid4()), name=data['name'], password=hashed_password, admin=False, mail=data['mail'])
   db.session.add(new_user)
   db.session.commit()
   return jsonify({'message': 'new user created'})
 
+# méthode qui permet de passer admin un utilisateur 
 @app.route('/user/<public_id>', methods=['PUT'])
 @token_required
 def promote_user(current_user,public_id):
@@ -197,6 +151,25 @@ def login():
     return jsonify({'token' : token.decode('UTF-8')})
 
   return make_response('Could not verify',401,{'WWW-Authenticate':'Basic realm="Login required!"'})
+
+
+@app.route('/wasureta', methods=['PUT'])
+def wasureta():
+
+  data = request.get_json()
+
+  user = User.query.filter_by(mail=data['mail']).first()
+
+  if not user:
+    return jsonify({'message': 'No user found with this mail !'})
+  
+  new_password = ''.join(random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(12))
+
+  hashed_password = generate_password_hash(new_password,method='sha256')
+ 
+  user.password = hashed_password
+  db.session.commit()
+  return jsonify({'new_password' : new_password})
 
 
 @app.route('/todo',methods=['GET'])
@@ -273,23 +246,6 @@ def delete_todo(current_user,todo_id):
   return jsonify({'message': 'Todo item has been deleted !'})
 
 
-
-# Init schema
-user_schema = UserSchema()
-users_schema = UserSchema(many=True) 
-
-todo_schema = TodoSchema()
-todos_schema = TodoSchema(many=True) 
-
-
-
-
 # Run server
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-#
-
-
-#
